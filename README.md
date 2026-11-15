@@ -323,9 +323,12 @@ ip route 10.32.238.0 255.255.255.0 10.32.241.50
 
 | No | Pengujian | Perintah / cara | Hasil yang diharapkan | Screenshot |
 |---|---|---|---|---|
-| 1 | Tabel routing R-PUSAT | `show ip route` di R-PUSAT | Terdapat rute statis (`S`) ke seluruh LAN wilayah dan default route (`S*`) ke `203.0.113.18` | ![](docs/img/soal3-show-ip-route-r-pusat.png) |
-| 2 | Tabel routing R-UTARA dan router cabang | `show ip route` di R-UTARA dan R-SELATAN | R-UTARA memiliki rute ke Pelabuhan dan default route ke R-PUSAT; router cabang hanya memiliki default route ke atas | ![](docs/img/soal3-show-ip-route-cabang.png) |
-| 3 | Konektivitas dan jalur antar-wilayah | `ping 10.32.232.11` dan `tracert 10.32.232.11` dari PC-PUSKESMAS-SEKOLAH-BARAT | Ping `Reply`, jalur melewati R-BARAT (`10.32.238.1`) -> R-PUSAT (`10.32.241.49`) -> R-TIMUR (`10.32.241.46`) -> tujuan | ![](docs/img/soal3-ping-tracert-antar-lan.png) |
+| 1 | Tabel routing R-PUSAT | `show ip route` di R-PUSAT | Terdapat rute statis (`S`) ke seluruh LAN wilayah dan default route (`S*`) ke `203.0.113.18` | <img width="436" height="238" alt="image" src="https://github.com/user-attachments/assets/b7fa2268-e721-4ae4-a831-6527f944dc8a" />
+|
+| 2 | Tabel routing R-UTARA dan router cabang | `show ip route` di R-UTARA dan R-SELATAN | R-UTARA memiliki rute ke Pelabuhan dan default route ke R-PUSAT; router cabang hanya memiliki default route ke atas | !<img width="433" height="209" alt="image" src="https://github.com/user-attachments/assets/a2d2c6f7-796c-4ea3-a607-d9cb93098e21" />
+ |
+| 3 | Konektivitas dan jalur antar-wilayah | `ping 10.32.232.11` dan `tracert 10.32.232.11` dari PC-PUSKESMAS-SEKOLAH-BARAT | Ping `Reply`, jalur melewati R-BARAT (`10.32.238.1`) -> R-PUSAT (`10.32.241.49`) -> R-TIMUR (`10.32.241.46`) -> tujuan | <img width="388" height="270" alt="image" src="https://github.com/user-attachments/assets/73b9bc7b-b211-4ef9-bc89-937221efddce" />
+ |
 
 ---
 
