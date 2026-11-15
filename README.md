@@ -478,17 +478,11 @@ Penjelasan perintah:
 Pada **R-ISP**, tidak dikonfigurasi static route maupun default route menuju blok alamat privat `10.32.0.0`. Tabel routing R-ISP hanya memuat jaringan publik yang terhubung langsung (`203.0.113.16/30` dan `8.8.8.0/24`).
 
 ## Bukti Pengujian Mandiri
-
 | No | Pengujian | Perintah / cara | Hasil yang diharapkan | Screenshot |
 |---|---|---|---|---|
-| 1 | Akses internet dari wilayah Barat dan Selatan | `ping 8.8.8.8` dan `tracert 8.8.8.8` dari PC-PUSKESMAS-SEKOLAH-BARAT dan PC-PJU-SELATAN | Ping `Reply` dari `8.8.8.8` di kedua wilayah | <img width="310" height="110" alt="image" src="https://github.com/user-attachments/assets/908b5e93-cd0e-41d3-af41-0e55aa2a1b05" <img width="260" height="115" alt="image" src="https://github.com/user-attachments/assets/f6075c2b-352e-42ec-9c68-58614958eb63" />
-/>
- |
-| 2 | Translasi alamat aktif di R-PUSAT | `show ip nat translations` dan `show ip nat statistics` di R-PUSAT | Inside local (`10.32.x.x`) ditranslasikan ke Inside global (`203.0.113.17`) | <img width="167" height="65" alt="image" src="https://github.com/user-attachments/assets/ee8e4ddf-82ff-494d-8029-9a3dbe4c52d3" />
- |
-| 3 | R-ISP tidak memiliki rute ke blok privat | `show ip route` di R-ISP | Hanya terdapat rute `203.0.113.16/30` dan `8.8.8.0/24`, tanpa rute `10.32.0.0` | <img width="425" height="192" alt="image" src="https://github.com/user-attachments/assets/e02df77e-56e6-43e2-b815-7e7fce47923d" />
- |
-
+| 1 | Akses internet dari wilayah Barat dan Selatan | `ping 8.8.8.8` dan `tracert 8.8.8.8` dari PC-PUSKESMAS-SEKOLAH-BARAT dan PC-PJU-SELATAN | Ping `Reply` dari `8.8.8.8` di kedua wilayah | <img width="310" height="110" alt="image" src="https://github.com/user-attachments/assets/908b5e93-cd0e-41d3-af41-0e55aa2a1b05" /> <img width="260" height="115" alt="image" src="https://github.com/user-attachments/assets/f6075c2b-352e-42ec-9c68-58614958eb63" /> |
+| 2 | Translasi alamat aktif di R-PUSAT | `show ip nat translations` dan `show ip nat statistics` di R-PUSAT | Inside local (`10.32.x.x`) ditranslasikan ke Inside global (`203.0.113.17`) | <img width="167" height="65" alt="image" src="https://github.com/user-attachments/assets/ee8e4ddf-82ff-494d-8029-9a3dbe4c52d3" /> |
+| 3 | R-ISP tidak memiliki rute ke blok privat | `show ip route` di R-ISP | Hanya terdapat rute `203.0.113.16/30` dan `8.8.8.0/24`, tanpa rute `10.32.0.0` | <img width="425" height="192" alt="image" src="https://github.com/user-attachments/assets/e02df77e-56e6-43e2-b815-7e7fce47923d" /> |
 ---
 
 # Soal 6: Tunnel GRE
@@ -534,15 +528,10 @@ ip route 10.32.241.0 255.255.255.224 192.168.4.1
 | Mengapa GRE saja tidak mengenkripsi data? | GRE (*Generic Routing Encapsulation*) merupakan protokol *tunneling* dan enkapsulasi murni yang hanya membungkus paket IP asli dengan *header* GRE dan *header* IP luar baru agar paket dapat melintasi jaringan perantara. GRE tidak dilengkapi mekanisme kriptografi (seperti kerahasiaan/enkripsi maupun integritas data), sehingga muatan paket (*payload*) di dalamnya tetap dikirimkan dalam bentuk teks terang (*plaintext*) dan tetap rentan disadap (*eavesdropping*) apabila tidak dikombinasikan dengan protokol keamanan seperti IPsec. |
 
 ## Bukti Pengujian Mandiri
-
 | No | Pengujian | Perintah / cara | Hasil yang diharapkan | Screenshot |
 |---|---|---|---|---|
-| 1 | Status dan konfigurasi Tunnel0 di kedua sisi | `show interface Tunnel0` di R-PUSAT dan R-PELABUHAN | Status `Tunnel0 is up, line protocol is up`, IP `192.168.4.1/30` dan `192.168.4.2/30`, protokol `GRE/IP` | <img width="173" height="68" alt="image" src="https://github.com/user-attachments/assets/83b3040b-da92-46ca-b680-a6da56d8aa8f" />
- <img width="392" height="241" alt="image" src="https://github.com/user-attachments/assets/eb31b64c-119e-4bac-b233-5c91ea97ef53" />
-|
-| 2 | Lalu lintas Balai Kota ke Pelabuhan melewati tunnel | `tracert 10.32.240.11` dari PC-PEGAWAI-BALAIKOTA | Hop melewati gateway `10.32.224.1` -> IP tunnel `192.168.4.2` -> tujuan `10.32.240.11` (R-UTARA tidak muncul sebagai hop) | <img width="286" height="125" alt="image" src="https://github.com/user-attachments/assets/9e5c6f00-c612-42b5-88ea-d318065afe0c" />
- |
-
+| 1 | Status dan konfigurasi Tunnel0 di kedua sisi | `show interface Tunnel0` di R-PUSAT dan R-PELABUHAN | Status `Tunnel0 is up, line protocol is up`, IP `192.168.4.1/30` dan `192.168.4.2/30`, protokol `GRE/IP` | <img width="173" height="68" alt="image" src="https://github.com/user-attachments/assets/83b3040b-da92-46ca-b680-a6da56d8aa8f" /> <img width="392" height="241" alt="image" src="https://github.com/user-attachments/assets/eb31b64c-119e-4bac-b233-5c91ea97ef53" /> |
+| 2 | Lalu lintas Balai Kota ke Pelabuhan melewati tunnel | `tracert 10.32.240.11` dari PC-PEGAWAI-BALAIKOTA | Hop melewati gateway `10.32.224.1` -> IP tunnel `192.168.4.2` -> tujuan `10.32.240.11` (R-UTARA tidak muncul sebagai hop) | <img width="286" height="125" alt="image" src="https://github.com/user-attachments/assets/9e5c6f00-c612-42b5-88ea-d318065afe0c" /> |
 ---
 # Soal 7: OSPF dan Failover
 
