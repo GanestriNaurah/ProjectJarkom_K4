@@ -8,26 +8,25 @@
 
 # Soal 1: Perancangan Topologi
 
-Topologi dibangun di Cisco Packet Tracer dengan skema **VLSM** (notasi prefix CIDR) dan blok dasar `10.32.0.0` (oktet kedua = 8 x nomor kelompok 4). Pusat jaringan berada di R-PUSAT (Balai Kota) dengan enam link backbone (L1 sampai L6) ke router wilayah dan satu link ke R-ISP.
+Topologi dibangun di Cisco Packet Tracer dengan skema **VLSM** (notasi prefix CIDR) dan blok dasar `10.32.0.0` (oktet kedua = 8 x nomor kelompok 4). R-PUSAT (Balai Kota) menjadi pusat jaringan: lima router wilayah (R-DC, R-UTARA, R-SELATAN, R-TIMUR, R-BARAT) terhubung langsung ke R-PUSAT, sedangkan R-PELABUHAN terhubung melalui R-UTARA (L6). Susunan backbone mengikuti Gambar 1 pada soal.
 
-<img width="1080" height="510" alt="Screenshot 2026-11-15 at 20 52 30" src="https://github.com/user-attachments/assets/35788477-5fec-4510-beef-ad4fd7b4ead8" />
+<img width="1074" height="514" alt="Screenshot 2026-11-15 at 21 01 35" src="https://github.com/user-attachments/assets/da14a455-5558-4bc0-9437-5f609a7734d2" />
 
 ## Penjelasan Rancangan
 
 ### 1. Backbone antar-router
 
-Susunan backbone mengikuti Gambar 1 pada soal: R-PUSAT sebagai pusat (hub) yang terhubung langsung ke setiap router wilayah.
-
-| Link | Dari | Ke | Media |
+| Link | Dari | Ke | Subnet |
 |---|---|---|---|
-| L1 | R-PUSAT | R-DC | Kabel serial (DCE di sisi R-PUSAT) |
-| L2 | R-PUSAT | R-UTARA | Kabel serial (DCE di sisi R-PUSAT) |
-| L3 | R-PUSAT | R-SELATAN | Kabel serial (DCE di sisi R-PUSAT) |
-| L4 | R-PUSAT | R-TIMUR | Kabel serial (DCE di sisi R-PUSAT) |
-| L5 | R-PUSAT | R-BARAT | Kabel serial (DCE di sisi R-PUSAT) |
-| L6 | R-PUSAT | R-PELABUHAN | Kabel serial (DCE di sisi R-PUSAT) |
-| ISP | R-PUSAT | R-ISP | Kabel crossover |
-| - | R-ISP | SRV-INTERNET (`8.8.8.8`) | Kabel crossover |
+| L1 | R-PUSAT | R-DC | `10.32.241.32/30` |
+| L2 | R-PUSAT | R-UTARA | `10.32.241.36/30` |
+| L3 | R-PUSAT | R-SELATAN | `10.32.241.40/30` |
+| L4 | R-PUSAT | R-TIMUR | `10.32.241.44/30` |
+| L5 | R-PUSAT | R-BARAT | `10.32.241.48/30` |
+| L6 | R-UTARA | R-PELABUHAN | `10.32.241.52/30` |
+| ISP | R-PUSAT | R-ISP | `203.0.113.16/30` |
+| - | R-ISP | SRV-INTERNET (`8.8.8.8`) | `8.8.8.0/24` |
+| GRE | R-PUSAT (Tunnel0) | R-PELABUHAN (Tunnel0) | `192.168.4.0/30`, jalur melewati L2 dan L6 (via R-UTARA) |
 
 ### 2. Desain setiap lokasi
 
@@ -52,24 +51,26 @@ Setiap LAN memakai satu switch sendiri dan satu perangkat perwakilan (sesuai ket
 
 ### 3. Penambahan port router
 
-| Router | Kebutuhan port | Penambahan |
-|---|---|---|
-| R-PUSAT | 6 serial (L1 sampai L6), 3 Gigabit (ISP, LAN Pegawai, LAN Server Balai Kota) | 3 modul HWIC-2T (6 port serial) |
-| R-DC | 1 serial (link ke R-PUSAT), 2 Gigabit (CCTV Kota dan Server DC) | 1 modul HWIC-2T |
-| R-UTARA | 1 serial (link ke R-PUSAT), 2 Gigabit (WiFi Utara dan Sensor Lalu Lintas) | 1 modul HWIC-2T |
-| R-SELATAN | 1 serial (link ke R-PUSAT), 2 Gigabit (WiFi Selatan dan PJU) | 1 modul HWIC-2T |
-| R-TIMUR | 1 serial (link ke R-PUSAT), 2 Gigabit (WiFi Timur dan Sensor Banjir) | 1 modul HWIC-2T |
-| R-BARAT | 1 serial (link ke R-PUSAT), 2 Gigabit (WiFi Barat dan Puskesmas Sekolah) | 1 modul HWIC-2T |
-| R-PELABUHAN | 1 serial (link ke R-PUSAT), 2 Gigabit (Kantor dan SCADA Pelabuhan) | 1 modul HWIC-2T |
-| R-ISP | 1 Gigabit (ke R-PUSAT), 1 Gigabit (ke SRV-INTERNET) | Tidak perlu, port bawaan cukup |
+Router 2911 hanya membawa 3 port Gigabit bawaan, sehingga router dengan lebih dari 3 interface diberi modul port tambahan. Nama interface mengikuti tabel alamat interface pada Soal 2.
+
+| Router | Interface | Kebutuhan | Penambahan |
+|---|---|---|---|
+| R-PUSAT | `Gi0/0` - `Gi0/7`, `Tunnel0` | 8 port Gigabit: 2 LAN (Pegawai dan Server Balai Kota), 5 link (L1 sampai L5), 1 link ISP | 5 port |
+| R-UTARA | `Gi0/0` - `Gi0/3` | 4 port Gigabit: L2, WiFi Utara, Sensor Lalu Lintas, L6 | 1 port |
+| R-DC | `Gi0/0` - `Gi0/2` | 3 port Gigabit: L1, CCTV Kota, Server DC | Tidak perlu |
+| R-BARAT | `Gi0/0` - `Gi0/2` | 3 port Gigabit: L5, WiFi Barat, Puskesmas dan Sekolah | Tidak perlu |
+| R-TIMUR | `Gi0/0` - `Gi0/2` | 3 port Gigabit: L4, WiFi Timur, Sensor Banjir | Tidak perlu |
+| R-SELATAN | `Gi0/0` - `Gi0/2` | 3 port Gigabit: L3, WiFi Selatan, PJU | Tidak perlu |
+| R-PELABUHAN | `Gi0/0` - `Gi0/2` | 3 port Gigabit: L6, SCADA, Kantor (ditambah `Tunnel0`) | Tidak perlu |
+| R-ISP | `Gi0/0` - `Gi0/1` | 2 port Gigabit: ke R-PUSAT dan SRV-INTERNET | Tidak perlu |
 
 ### 4. Pertimbangan dan alasan
 
 | Keputusan | Alasan |
 |---|---|
-| Topologi star dengan R-PUSAT sebagai pusat | Setiap wilayah satu hop dari pusat, rute mudah dibuat dan satu gangguan link tidak memutus wilayah lain |
+| R-PUSAT sebagai pusat dan R-PELABUHAN lewat R-UTARA | Mengikuti Gambar 1. Lima wilayah satu hop dari pusat, rute mudah dibuat |
 | Satu switch untuk setiap LAN | Setiap subnet menjadi satu domain broadcast sendiri dan sesuai dengan pembagian subnet pada tabel VLSM |
-| Link backbone memakai kabel serial | Link antar-router bersifat point-to-point sehingga cukup subnet `/30` |
+| Setiap link backbone memakai subnet `/30` | Link antar-router bersifat point-to-point sehingga hanya butuh 2 alamat host |
 | Access point untuk LAN WiFi Publik | Pengguna WiFi publik memakai perangkat mobile (laptop dan smartphone) |
 | Kabel UTP untuk sensor, CCTV, PJU, SCADA, dan server | Perangkat tetap yang membutuhkan koneksi stabil |
 | Server ditempatkan pada LAN tersendiri | Layanan pusat (DNS, FTP, Web, Email) terpisah dari LAN pengguna sehingga mudah diatur |
@@ -85,50 +86,178 @@ Seluruh perangkat diganti namanya sesuai tempatnya (contoh: `R-PUSAT`, `SW-SERVE
 
 ## Penjelasan Perhitungan
 
-- Blok dasar `10.32.0.0` (oktet kedua = 8 x 4). Seluruh alamat LAN berada dalam agregat CIDR `10.32.0.0/16`.
-- Metode VLSM: subnet diurutkan dari kebutuhan host terbesar ke terkecil, lalu diberi prefix terkecil yang masih mencukupi (`2^(32-prefix) - 2 >= host`). Blok berikutnya dimulai tepat setelah broadcast blok sebelumnya sehingga tidak ada tumpang tindih.
-- Gateway setiap LAN adalah alamat host pertama pada subnet. Alamat `.1` sampai `.10` dikecualikan dari DHCP (lihat Soal 4).
+- Kelompok 4 (K = 4), alamat dasar `10.32.0.0` (oktet kedua = 8 x K). Blok `10.0.0.0/8` adalah blok alamat private yang dipakai di lingkup internal.
+- Jumlah host berasal dari soal UTS. Kebutuhan alamat = host + 2 (network ID dan broadcast). Prefix = 32 - pembulatan ke atas log2(kebutuhan).
+- **VLSM**: subnet diurutkan dari host terbesar dan dialokasikan berurutan mulai dari alamat dasar (offset = offset sebelumnya + ukuran blok sebelumnya). Skema ini yang dipakai di Packet Tracer.
+- **CIDR**: LAN dikelompokkan per router menjadi satu blok (supernet), lalu blok router digabung menjadi satu supernet di akar.
+- Gateway setiap LAN adalah alamat host pertama subnet.
+- Subnet link L1 sampai L6 tidak ada di lembar UTS, ditambahkan sebagai `/30` di akhir blok (dicatat pada tabel revisi).
 
-## Tabel Subnetting LAN (VLSM dan CIDR)
+### Tabel kebutuhan alamat
 
-| No | Nama Subnet | Router | Kebutuhan Host | Network ID/Prefix | Netmask | Rentang Host | Broadcast | Gateway | Host Tersedia |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | WiFi Publik Utara | R-UTARA | 11.000 | `10.32.0.0/18` | `255.255.192.0` | `10.32.0.1 - 10.32.63.254` | `10.32.63.255` | `10.32.0.1` | 16.382 |
-| 2 | WiFi Publik Selatan | R-SELATAN | 6.500 | `10.32.64.0/19` | `255.255.224.0` | `10.32.64.1 - 10.32.95.254` | `10.32.95.255` | `10.32.64.1` | 8.190 |
-| 3 | CCTV Kota | R-DC | 6.000 | `10.32.96.0/19` | `255.255.224.0` | `10.32.96.1 - 10.32.127.254` | `10.32.127.255` | `10.32.96.1` | 8.190 |
-| 4 | WiFi Publik Timur | R-TIMUR | 5.500 | `10.32.128.0/19` | `255.255.224.0` | `10.32.128.1 - 10.32.159.254` | `10.32.159.255` | `10.32.128.1` | 8.190 |
-| 5 | Sensor dan SCADA Pelabuhan | R-PELABUHAN | 5.000 | `10.32.160.0/19` | `255.255.224.0` | `10.32.160.1 - 10.32.191.254` | `10.32.191.255` | `10.32.160.1` | 8.190 |
-| 6 | WiFi Publik Barat | R-BARAT | 4.500 | `10.32.192.0/19` | `255.255.224.0` | `10.32.192.1 - 10.32.223.254` | `10.32.223.255` | `10.32.192.1` | 8.190 |
-| 7 | Pegawai Balai Kota | R-PUSAT | 1.800 | `10.32.224.0/21` | `255.255.248.0` | `10.32.224.1 - 10.32.231.254` | `10.32.231.255` | `10.32.224.1` | 2.046 |
-| 8 | Sensor Banjir Timur | R-TIMUR | 700 | `10.32.232.0/22` | `255.255.252.0` | `10.32.232.1 - 10.32.235.254` | `10.32.235.255` | `10.32.232.1` | 1.022 |
-| 9 | Sensor Lalu Lintas Utara | R-UTARA | 450 | `10.32.236.0/23` | `255.255.254.0` | `10.32.236.1 - 10.32.237.254` | `10.32.237.255` | `10.32.236.1` | 510 |
-| 10 | Puskesmas dan Sekolah Barat | R-BARAT | 220 | `10.32.238.0/24` | `255.255.255.0` | `10.32.238.1 - 10.32.238.254` | `10.32.238.255` | `10.32.238.1` | 254 |
-| 11 | Server dan Storage DC | R-DC | 180 | `10.32.239.0/24` | `255.255.255.0` | `10.32.239.1 - 10.32.239.254` | `10.32.239.255` | `10.32.239.1` | 254 |
-| 12 | Kantor Pelabuhan | R-PELABUHAN | 120 | `10.32.240.0/25` | `255.255.255.128` | `10.32.240.1 - 10.32.240.126` | `10.32.240.127` | `10.32.240.1` | 126 |
-| 13 | PJU Pintar Selatan | R-SELATAN | 90 | `10.32.240.128/25` | `255.255.255.128` | `10.32.240.129 - 10.32.240.254` | `10.32.240.255` | `10.32.240.129` | 126 |
-| 14 | Server Balai Kota | R-PUSAT | 20 | `10.32.241.0/27` | `255.255.255.224` | `10.32.241.1 - 10.32.241.30` | `10.32.241.31` | `10.32.241.1` | 30 |
-
-## Tabel Subnetting Link Antar-Router dan Layanan
-
-| No | Keperluan | Network ID/Prefix | Netmask | Rentang Host | Broadcast | Keterangan |
+| Router | LAN | Jumlah Host | Kebutuhan Alamat (host + 2) | Prefix | Ukuran Blok | Subnet Mask |
 |---|---|---|---|---|---|---|
-| 15 | Link L1 R-PUSAT ke R-DC | `10.32.241.32/30` | `255.255.255.252` | `10.32.241.33 - 10.32.241.34` | `10.32.241.35` | Point-to-point |
-| 16 | Link L2 R-PUSAT ke R-UTARA | `10.32.241.36/30` | `255.255.255.252` | `10.32.241.37 - 10.32.241.38` | `10.32.241.39` | Point-to-point |
-| 17 | Link L3 R-PUSAT ke R-SELATAN | `10.32.241.40/30` | `255.255.255.252` | `10.32.241.41 - 10.32.241.42` | `10.32.241.43` | Point-to-point |
-| 18 | Link L4 R-PUSAT ke R-TIMUR | `10.32.241.44/30` | `255.255.255.252` | `10.32.241.45 - 10.32.241.46` | `10.32.241.47` | Point-to-point |
-| 19 | Link L5 R-PUSAT ke R-BARAT | `10.32.241.48/30` | `255.255.255.252` | `10.32.241.49 - 10.32.241.50` | `10.32.241.51` | Point-to-point |
-| 20 | Link L6 R-PUSAT ke R-PELABUHAN | `10.32.241.52/30` | `255.255.255.252` | `10.32.241.53 - 10.32.241.54` | `10.32.241.55` | Point-to-point |
-| 21 | Link R-PUSAT ke R-ISP | `203.0.113.16/30` | `255.255.255.252` | `203.0.113.17 - 203.0.113.18` | `203.0.113.19` | `203.0.113.(4 x K)/30` dengan K = 4 |
-| 22 | Server internet | `8.8.8.0/24` | `255.255.255.0` | `8.8.8.1 - 8.8.8.254` | `8.8.8.255` | Server `8.8.8.8`, gateway `8.8.8.1` di R-ISP |
-| 23 | Tunnel GRE | `192.168.4.0/30` | `255.255.255.252` | `192.168.4.1 - 192.168.4.2` | `192.168.4.3` | `192.168.K.0/30`. Tunnel R-PUSAT `192.168.4.1`, tunnel R-PELABUHAN `192.168.4.2` |
+| R-PUSAT | Pegawai Balai Kota | 1.800 | 1.802 | `/21` | 2.048 | `255.255.248.0` |
+| R-PUSAT | Server Balai Kota | 20 | 22 | `/27` | 32 | `255.255.255.224` |
+| R-DC | CCTV Kota | 6.000 | 6.002 | `/19` | 8.192 | `255.255.224.0` |
+| R-DC | Server dan Storage DC | 180 | 182 | `/24` | 256 | `255.255.255.0` |
+| R-UTARA | WiFi Publik Utara | 11.000 | 11.002 | `/18` | 16.384 | `255.255.192.0` |
+| R-UTARA | Sensor Lalu Lintas Utara | 450 | 452 | `/23` | 512 | `255.255.254.0` |
+| R-PELABUHAN | Sensor dan SCADA Pelabuhan | 5.000 | 5.002 | `/19` | 8.192 | `255.255.224.0` |
+| R-PELABUHAN | Kantor Pelabuhan | 120 | 122 | `/25` | 128 | `255.255.255.128` |
+| R-SELATAN | WiFi Publik Selatan | 6.500 | 6.502 | `/19` | 8.192 | `255.255.224.0` |
+| R-SELATAN | PJU Pintar Selatan | 90 | 92 | `/25` | 128 | `255.255.255.128` |
+| R-TIMUR | WiFi Publik Timur | 5.500 | 5.502 | `/19` | 8.192 | `255.255.224.0` |
+| R-TIMUR | Sensor Banjir Timur | 700 | 702 | `/22` | 1.024 | `255.255.252.0` |
+| R-BARAT | WiFi Publik Barat | 4.500 | 4.502 | `/19` | 8.192 | `255.255.224.0` |
+| R-BARAT | Puskesmas dan Sekolah Barat | 220 | 222 | `/24` | 256 | `255.255.255.0` |
+
+## Tabel Subnetting VLSM
+
+| No | Nama Subnet | Router | Host | Prefix | Ukuran Blok | Network ID | Subnet Mask | Rentang Host | Broadcast | Gateway |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | WiFi Publik Utara | R-UTARA | 11.000 | `/18` | 16.384 | `10.32.0.0` | `255.255.192.0` | `10.32.0.1 - 10.32.63.254` | `10.32.63.255` | `10.32.0.1` |
+| 2 | WiFi Publik Selatan | R-SELATAN | 6.500 | `/19` | 8.192 | `10.32.64.0` | `255.255.224.0` | `10.32.64.1 - 10.32.95.254` | `10.32.95.255` | `10.32.64.1` |
+| 3 | CCTV Kota | R-DC | 6.000 | `/19` | 8.192 | `10.32.96.0` | `255.255.224.0` | `10.32.96.1 - 10.32.127.254` | `10.32.127.255` | `10.32.96.1` |
+| 4 | WiFi Publik Timur | R-TIMUR | 5.500 | `/19` | 8.192 | `10.32.128.0` | `255.255.224.0` | `10.32.128.1 - 10.32.159.254` | `10.32.159.255` | `10.32.128.1` |
+| 5 | Sensor dan SCADA Pelabuhan | R-PELABUHAN | 5.000 | `/19` | 8.192 | `10.32.160.0` | `255.255.224.0` | `10.32.160.1 - 10.32.191.254` | `10.32.191.255` | `10.32.160.1` |
+| 6 | WiFi Publik Barat | R-BARAT | 4.500 | `/19` | 8.192 | `10.32.192.0` | `255.255.224.0` | `10.32.192.1 - 10.32.223.254` | `10.32.223.255` | `10.32.192.1` |
+| 7 | Pegawai Balai Kota | R-PUSAT | 1.800 | `/21` | 2.048 | `10.32.224.0` | `255.255.248.0` | `10.32.224.1 - 10.32.231.254` | `10.32.231.255` | `10.32.224.1` |
+| 8 | Sensor Banjir Timur | R-TIMUR | 700 | `/22` | 1.024 | `10.32.232.0` | `255.255.252.0` | `10.32.232.1 - 10.32.235.254` | `10.32.235.255` | `10.32.232.1` |
+| 9 | Sensor Lalu Lintas Utara | R-UTARA | 450 | `/23` | 512 | `10.32.236.0` | `255.255.254.0` | `10.32.236.1 - 10.32.237.254` | `10.32.237.255` | `10.32.236.1` |
+| 10 | Puskesmas dan Sekolah Barat | R-BARAT | 220 | `/24` | 256 | `10.32.238.0` | `255.255.255.0` | `10.32.238.1 - 10.32.238.254` | `10.32.238.255` | `10.32.238.1` |
+| 11 | Server dan Storage DC | R-DC | 180 | `/24` | 256 | `10.32.239.0` | `255.255.255.0` | `10.32.239.1 - 10.32.239.254` | `10.32.239.255` | `10.32.239.1` |
+| 12 | Kantor Pelabuhan | R-PELABUHAN | 120 | `/25` | 128 | `10.32.240.0` | `255.255.255.128` | `10.32.240.1 - 10.32.240.126` | `10.32.240.127` | `10.32.240.1` |
+| 13 | PJU Pintar Selatan | R-SELATAN | 90 | `/25` | 128 | `10.32.240.128` | `255.255.255.128` | `10.32.240.129 - 10.32.240.254` | `10.32.240.255` | `10.32.240.129` |
+| 14 | Server Balai Kota | R-PUSAT | 20 | `/27` | 32 | `10.32.241.0` | `255.255.255.224` | `10.32.241.1 - 10.32.241.30` | `10.32.241.31` | `10.32.241.1` |
+| 15 | L1 (R-PUSAT - R-DC) | R-PUSAT - R-DC | 2 | `/30` | 4 | `10.32.241.32` | `255.255.255.252` | `10.32.241.33 - 10.32.241.34` | `10.32.241.35` | `10.32.241.33` |
+| 16 | L2 (R-PUSAT - R-UTARA) | R-PUSAT - R-UTARA | 2 | `/30` | 4 | `10.32.241.36` | `255.255.255.252` | `10.32.241.37 - 10.32.241.38` | `10.32.241.39` | `10.32.241.37` |
+| 17 | L3 (R-PUSAT - R-SELATAN) | R-PUSAT - R-SELATAN | 2 | `/30` | 4 | `10.32.241.40` | `255.255.255.252` | `10.32.241.41 - 10.32.241.42` | `10.32.241.43` | `10.32.241.41` |
+| 18 | L4 (R-PUSAT - R-TIMUR) | R-PUSAT - R-TIMUR | 2 | `/30` | 4 | `10.32.241.44` | `255.255.255.252` | `10.32.241.45 - 10.32.241.46` | `10.32.241.47` | `10.32.241.45` |
+| 19 | L5 (R-PUSAT - R-BARAT) | R-PUSAT - R-BARAT | 2 | `/30` | 4 | `10.32.241.48` | `255.255.255.252` | `10.32.241.49 - 10.32.241.50` | `10.32.241.51` | `10.32.241.49` |
+| 20 | L6 (R-UTARA - R-PELABUHAN) | R-UTARA - R-PELABUHAN | 2 | `/30` | 4 | `10.32.241.52` | `255.255.255.252` | `10.32.241.53 - 10.32.241.54` | `10.32.241.55` | `10.32.241.53` |
+
+## Tabel Subnetting CIDR
+
+Blok router dialokasikan berurutan dari alamat dasar. Subnet link L1 sampai L6 berada di blok `10.33.208.0/27`.
+
+| No | Nama Subnet | Router | Host | Prefix | Ukuran Blok | Network ID | Subnet Mask | Rentang Host | Broadcast | Gateway |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | WiFi Publik Utara | R-UTARA | 11.000 | `/18` | 16.384 | `10.32.0.0` | `255.255.192.0` | `10.32.0.1 - 10.32.63.254` | `10.32.63.255` | `10.32.0.1` |
+| 2 | Sensor Lalu Lintas Utara | R-UTARA | 450 | `/23` | 512 | `10.32.64.0` | `255.255.254.0` | `10.32.64.1 - 10.32.65.254` | `10.32.65.255` | `10.32.64.1` |
+| 3 | WiFi Publik Timur | R-TIMUR | 5.500 | `/19` | 8.192 | `10.32.128.0` | `255.255.224.0` | `10.32.128.1 - 10.32.159.254` | `10.32.159.255` | `10.32.128.1` |
+| 4 | Sensor Banjir Timur | R-TIMUR | 700 | `/22` | 1.024 | `10.32.160.0` | `255.255.252.0` | `10.32.160.1 - 10.32.163.254` | `10.32.163.255` | `10.32.160.1` |
+| 5 | CCTV Kota | R-DC | 6.000 | `/19` | 8.192 | `10.32.192.0` | `255.255.224.0` | `10.32.192.1 - 10.32.223.254` | `10.32.223.255` | `10.32.192.1` |
+| 6 | Server dan Storage DC | R-DC | 180 | `/24` | 256 | `10.32.224.0` | `255.255.255.0` | `10.32.224.1 - 10.32.224.254` | `10.32.224.255` | `10.32.224.1` |
+| 7 | WiFi Publik Barat | R-BARAT | 4.500 | `/19` | 8.192 | `10.33.0.0` | `255.255.224.0` | `10.33.0.1 - 10.33.31.254` | `10.33.31.255` | `10.33.0.1` |
+| 8 | Puskesmas dan Sekolah Barat | R-BARAT | 220 | `/24` | 256 | `10.33.32.0` | `255.255.255.0` | `10.33.32.1 - 10.33.32.254` | `10.33.32.255` | `10.33.32.1` |
+| 9 | Sensor dan SCADA Pelabuhan | R-PELABUHAN | 5.000 | `/19` | 8.192 | `10.33.64.0` | `255.255.224.0` | `10.33.64.1 - 10.33.95.254` | `10.33.95.255` | `10.33.64.1` |
+| 10 | Kantor Pelabuhan | R-PELABUHAN | 120 | `/25` | 128 | `10.33.96.0` | `255.255.255.128` | `10.33.96.1 - 10.33.96.126` | `10.33.96.127` | `10.33.96.1` |
+| 11 | WiFi Publik Selatan | R-SELATAN | 6.500 | `/19` | 8.192 | `10.33.128.0` | `255.255.224.0` | `10.33.128.1 - 10.33.159.254` | `10.33.159.255` | `10.33.128.1` |
+| 12 | PJU Pintar Selatan | R-SELATAN | 90 | `/25` | 128 | `10.33.160.0` | `255.255.255.128` | `10.33.160.1 - 10.33.160.126` | `10.33.160.127` | `10.33.160.1` |
+| 13 | Pegawai Balai Kota | R-PUSAT | 1.800 | `/21` | 2.048 | `10.33.192.0` | `255.255.248.0` | `10.33.192.1 - 10.33.199.254` | `10.33.199.255` | `10.33.192.1` |
+| 14 | Server Balai Kota | R-PUSAT | 20 | `/27` | 32 | `10.33.200.0` | `255.255.255.224` | `10.33.200.1 - 10.33.200.30` | `10.33.200.31` | `10.33.200.1` |
+| 15 | L1 (R-PUSAT - R-DC) | R-PUSAT - R-DC | 2 | `/30` | 4 | `10.33.208.0` | `255.255.255.252` | `10.33.208.1 - 10.33.208.2` | `10.33.208.3` | `10.33.208.1` |
+| 16 | L2 (R-PUSAT - R-UTARA) | R-PUSAT - R-UTARA | 2 | `/30` | 4 | `10.33.208.4` | `255.255.255.252` | `10.33.208.5 - 10.33.208.6` | `10.33.208.7` | `10.33.208.5` |
+| 17 | L3 (R-PUSAT - R-SELATAN) | R-PUSAT - R-SELATAN | 2 | `/30` | 4 | `10.33.208.8` | `255.255.255.252` | `10.33.208.9 - 10.33.208.10` | `10.33.208.11` | `10.33.208.9` |
+| 18 | L4 (R-PUSAT - R-TIMUR) | R-PUSAT - R-TIMUR | 2 | `/30` | 4 | `10.33.208.12` | `255.255.255.252` | `10.33.208.13 - 10.33.208.14` | `10.33.208.15` | `10.33.208.13` |
+| 19 | L5 (R-PUSAT - R-BARAT) | R-PUSAT - R-BARAT | 2 | `/30` | 4 | `10.33.208.16` | `255.255.255.252` | `10.33.208.17 - 10.33.208.18` | `10.33.208.19` | `10.33.208.17` |
+| 20 | L6 (R-UTARA - R-PELABUHAN) | R-UTARA - R-PELABUHAN | 2 | `/30` | 4 | `10.33.208.20` | `255.255.255.252` | `10.33.208.21 - 10.33.208.22` | `10.33.208.23` | `10.33.208.21` |
+
+### Penggabungan (supernet)
+
+| Router / Blok | Anggota (LAN, prefix, jumlah alamat) | Jumlah Alamat Anggota | Prefix Blok | Ukuran Blok | Network ID Blok | Rentang Alamat Blok |
+|---|---|---|---|---|---|---|
+| R-UTARA | WiFi Publik Utara (/18, 16.384); Sensor Lalu Lintas Utara (/23, 512) | 16.896 | `/17` | 32.768 | `10.32.0.0` | `10.32.0.0 - 10.32.127.255` |
+| R-TIMUR | WiFi Publik Timur (/19, 8.192); Sensor Banjir Timur (/22, 1.024) | 9.216 | `/18` | 16.384 | `10.32.128.0` | `10.32.128.0 - 10.32.191.255` |
+| R-DC | CCTV Kota (/19, 8.192); Server dan Storage DC (/24, 256) | 8.448 | `/18` | 16.384 | `10.32.192.0` | `10.32.192.0 - 10.32.255.255` |
+| R-BARAT | WiFi Publik Barat (/19, 8.192); Puskesmas dan Sekolah Barat (/24, 256) | 8.448 | `/18` | 16.384 | `10.33.0.0` | `10.33.0.0 - 10.33.63.255` |
+| R-PELABUHAN | Sensor dan SCADA Pelabuhan (/19, 8.192); Kantor Pelabuhan (/25, 128) | 8.320 | `/18` | 16.384 | `10.33.64.0` | `10.33.64.0 - 10.33.127.255` |
+| R-SELATAN | WiFi Publik Selatan (/19, 8.192); PJU Pintar Selatan (/25, 128) | 8.320 | `/18` | 16.384 | `10.33.128.0` | `10.33.128.0 - 10.33.191.255` |
+| R-PUSAT | Pegawai Balai Kota (/21, 2.048); Server Balai Kota (/27, 32) | 2.080 | `/20` | 4.096 | `10.33.192.0` | `10.33.192.0 - 10.33.207.255` |
+| Link backbone L1-L6 | 6 subnet link /30 (6 x 4 alamat) | 24 | `/27` | 32 | `10.33.208.0` | `10.33.208.0 - 10.33.208.31` |
+| TOTAL (akar pohon) | Seluruh blok router + blok link | 118.816 | `/15` | 131.072 | `10.32.0.0` | `10.32.0.0 - 10.33.255.255` |
+
+Jumlah alamat anggota = total ukuran blok LAN. Prefix blok = prefix terkecil yang menampung jumlah tersebut.
+
+## Alamat Tambahan
+
+Tidak dihitung saat UTS.
+
+| Keperluan | Alamat | Keterangan |
+|---|---|---|
+| Link R-PUSAT ke R-ISP | `203.0.113.16/30` | 203.0.113.(4 x K)/30. R-PUSAT .17, R-ISP .18 |
+| Server internet | `8.8.8.0/24` | Server 8.8.8.8, gateway 8.8.8.1 di R-ISP |
+| Tunnel GRE | `192.168.4.0/30` | 192.168.K.0/30. Tunnel R-PUSAT .1, tunnel R-PELABUHAN .2 |
+
+## Tabel Alamat Interface dan Perangkat
+
+Skema VLSM. Nama interface `Gi0/x` berurutan dan dapat disesuaikan dengan modul port yang dipasang di Packet Tracer. Router memakai host pertama subnet (gateway), perangkat perwakilan memakai host kedua. Pada link `/30`, R-PUSAT dan R-UTARA (sisi dekat pusat) memakai host pertama.
+
+| Perangkat | Interface | Terhubung ke | Alamat IP | Prefix | Subnet Mask | Default Gateway |
+|---|---|---|---|---|---|---|
+| R-PUSAT | `Gi0/0` | SW-PEGAWAI-BALAIKOTA | `10.32.224.1` | `/21` | `255.255.248.0` | - |
+| R-PUSAT | `Gi0/1` | SW-SERVER-BALAIKOTA | `10.32.241.1` | `/27` | `255.255.255.224` | - |
+| R-PUSAT | `Gi0/2` | R-DC (L1) | `10.32.241.33` | `/30` | `255.255.255.252` | - |
+| R-PUSAT | `Gi0/3` | R-UTARA (L2) | `10.32.241.37` | `/30` | `255.255.255.252` | - |
+| R-PUSAT | `Gi0/4` | R-SELATAN (L3) | `10.32.241.41` | `/30` | `255.255.255.252` | - |
+| R-PUSAT | `Gi0/5` | R-TIMUR (L4) | `10.32.241.45` | `/30` | `255.255.255.252` | - |
+| R-PUSAT | `Gi0/6` | R-BARAT (L5) | `10.32.241.49` | `/30` | `255.255.255.252` | - |
+| R-PUSAT | `Gi0/7` | R-ISP | `203.0.113.17` | `/30` | `255.255.255.252` | - |
+| R-PUSAT | `Tunnel0` | R-PELABUHAN (GRE) | `192.168.4.1` | `/30` | `255.255.255.252` | - |
+| R-DC | `Gi0/0` | R-PUSAT (L1) | `10.32.241.34` | `/30` | `255.255.255.252` | - |
+| R-DC | `Gi0/1` | SW-CCTV-KOTA | `10.32.96.1` | `/19` | `255.255.224.0` | - |
+| R-DC | `Gi0/2` | SW-SERVER-DC | `10.32.239.1` | `/24` | `255.255.255.0` | - |
+| R-BARAT | `Gi0/0` | R-PUSAT (L5) | `10.32.241.50` | `/30` | `255.255.255.252` | - |
+| R-BARAT | `Gi0/1` | SW-WIFI-BARAT | `10.32.192.1` | `/19` | `255.255.224.0` | - |
+| R-BARAT | `Gi0/2` | SW-PUSKESMAS-SEKOLAH-BARAT | `10.32.238.1` | `/24` | `255.255.255.0` | - |
+| R-UTARA | `Gi0/0` | R-PUSAT (L2) | `10.32.241.38` | `/30` | `255.255.255.252` | - |
+| R-UTARA | `Gi0/1` | SW-WIFI-UTARA | `10.32.0.1` | `/18` | `255.255.192.0` | - |
+| R-UTARA | `Gi0/2` | SW-SENSOR-LALIN-UTARA | `10.32.236.1` | `/23` | `255.255.254.0` | - |
+| R-UTARA | `Gi0/3` | R-PELABUHAN (L6) | `10.32.241.53` | `/30` | `255.255.255.252` | - |
+| R-TIMUR | `Gi0/0` | R-PUSAT (L4) | `10.32.241.46` | `/30` | `255.255.255.252` | - |
+| R-TIMUR | `Gi0/1` | SW-WIFI-TIMUR | `10.32.128.1` | `/19` | `255.255.224.0` | - |
+| R-TIMUR | `Gi0/2` | SW-SENSOR-BANJIR-TIMUR | `10.32.232.1` | `/22` | `255.255.252.0` | - |
+| R-SELATAN | `Gi0/0` | R-PUSAT (L3) | `10.32.241.42` | `/30` | `255.255.255.252` | - |
+| R-SELATAN | `Gi0/1` | SW-WIFI-SELATAN | `10.32.64.1` | `/19` | `255.255.224.0` | - |
+| R-SELATAN | `Gi0/2` | SW-PJU-SELATAN | `10.32.240.129` | `/25` | `255.255.255.128` | - |
+| R-PELABUHAN | `Gi0/0` | R-UTARA (L6) | `10.32.241.54` | `/30` | `255.255.255.252` | - |
+| R-PELABUHAN | `Gi0/1` | SW-SCADA-PELABUHAN | `10.32.160.1` | `/19` | `255.255.224.0` | - |
+| R-PELABUHAN | `Gi0/2` | SW-KANTOR-PELABUHAN | `10.32.240.1` | `/25` | `255.255.255.128` | - |
+| R-PELABUHAN | `Tunnel0` | R-PUSAT (GRE) | `192.168.4.2` | `/30` | `255.255.255.252` | - |
+| R-ISP | `Gi0/0` | R-PUSAT | `203.0.113.18` | `/30` | `255.255.255.252` | - |
+| R-ISP | `Gi0/1` | SRV-INTERNET | `8.8.8.1` | `/24` | `255.255.255.0` | - |
+| PC-PEGAWAI-BALAIKOTA | `NIC / Wireless` | Switch / AP LAN | `10.32.224.2` | `/21` | `255.255.248.0` | `10.32.224.1` |
+| SRV-BALAIKOTA | `NIC / Wireless` | Switch / AP LAN | `10.32.241.2` | `/27` | `255.255.255.224` | `10.32.241.1` |
+| PC-CCTV-KOTA | `NIC / Wireless` | Switch / AP LAN | `10.32.96.2` | `/19` | `255.255.224.0` | `10.32.96.1` |
+| SRV-DC | `NIC / Wireless` | Switch / AP LAN | `10.32.239.2` | `/24` | `255.255.255.0` | `10.32.239.1` |
+| SP-WIFI-BARAT | `NIC / Wireless` | Switch / AP LAN | `10.32.192.2` | `/19` | `255.255.224.0` | `10.32.192.1` |
+| PC-PUSKESMAS-SEKOLAH-BARAT | `NIC / Wireless` | Switch / AP LAN | `10.32.238.2` | `/24` | `255.255.255.0` | `10.32.238.1` |
+| LAPTOP-WIFI-UTARA | `NIC / Wireless` | Switch / AP LAN | `10.32.0.2` | `/18` | `255.255.192.0` | `10.32.0.1` |
+| PC-SENSOR-LALIN-UTARA | `NIC / Wireless` | Switch / AP LAN | `10.32.236.2` | `/23` | `255.255.254.0` | `10.32.236.1` |
+| LAPTOP-WIFI-TIMUR | `NIC / Wireless` | Switch / AP LAN | `10.32.128.2` | `/19` | `255.255.224.0` | `10.32.128.1` |
+| PC-SENSOR-BANJIR-TIMUR | `NIC / Wireless` | Switch / AP LAN | `10.32.232.2` | `/22` | `255.255.252.0` | `10.32.232.1` |
+| SP-WIFI-SELATAN | `NIC / Wireless` | Switch / AP LAN | `10.32.64.2` | `/19` | `255.255.224.0` | `10.32.64.1` |
+| PC-PJU-SELATAN | `NIC / Wireless` | Switch / AP LAN | `10.32.240.130` | `/25` | `255.255.255.128` | `10.32.240.129` |
+| PC-SCADA-PELABUHAN | `NIC / Wireless` | Switch / AP LAN | `10.32.160.2` | `/19` | `255.255.224.0` | `10.32.160.1` |
+| PC-KANTOR-PELABUHAN | `NIC / Wireless` | Switch / AP LAN | `10.32.240.2` | `/25` | `255.255.255.128` | `10.32.240.1` |
+| SRV-INTERNET | `NIC / Wireless` | Switch / AP LAN | `8.8.8.8` | `/24` | `255.255.255.0` | `8.8.8.1` |
 
 ## Tabel Revisi
 
-Perbaikan kesalahan hitung pada jawaban UTS dicatat pada tabel berikut.
+Kesalahan hitung pada jawaban UTS diperbaiki dan dicatat pada tabel berikut. Jawaban di UTS dibaca dari foto lembar VLSM (no 3). Subnet yang tidak tercantum di sini sama dengan lembar UTS.
 
 | Subnet | Jawaban di UTS | Perbaikan | Alasan Kesalahan |
 |---|---|---|---|
-| - | - | - | - |
+| Kantor Pelabuhan (R-PELABUHAN, /25) - subnet mask | 255.225.255.128 | 255.255.255.128 | Oktet ke-2 salah tulis (225). Mask /25 yang benar adalah 255.255.255.128. Prefix /25 dan blok 128 tidak berubah. |
+| Sensor Banjir Timur (/22) | Network 10.32.236.0, broadcast 10.32.237.255 | Network 10.32.232.0, rentang 10.32.232.1 - 10.32.235.254, broadcast 10.32.235.255 | Blok /22 = 1.024 alamat (4 blok /24), tetapi rentang UTS hanya 512 alamat. Network ID juga harus lanjut tepat setelah Pegawai Balai Kota (berakhir 10.32.231.255). |
+| Sensor Lalu Lintas Utara (/23) | Network 10.32.238.0, rentang 10.32.238.1 - 10.32.238.254, broadcast 10.32.238.255 | Network 10.32.236.0, rentang 10.32.236.1 - 10.32.237.254, broadcast 10.32.237.255 | Blok /23 = 512 alamat, tetapi rentang UTS hanya 256 alamat (seperti /24). Network ID harus lanjut dari 10.32.235.255. |
+| Puskesmas dan Sekolah Barat (/24) | Network 10.32.239.0, rentang 10.32.239.1 - 10.32.239.254, broadcast 10.32.239.255 | Network 10.32.238.0, rentang 10.32.238.1 - 10.32.238.254, broadcast 10.32.238.255 | Network ID bergeser akibat kesalahan pada subnet sebelumnya. Harus lanjut dari 10.32.237.255. |
+| Server dan Storage DC (/24) | Network 10.32.240.0, rentang 10.32.240.1 - 10.32.240.126, broadcast 10.32.240.127 | Network 10.32.239.0, rentang 10.32.239.1 - 10.32.239.254, broadcast 10.32.239.255 | Prefix /24 = 256 alamat (broadcast .255), tetapi rentang UTS hanya 128 alamat (seperti /25). Network ID juga bergeser akibat kesalahan sebelumnya. |
+| Kantor Pelabuhan (/25) - alokasi | Network 10.32.240.128, rentang 10.32.240.129 - 10.32.240.254, broadcast 10.32.240.255 | Network 10.32.240.0, rentang 10.32.240.1 - 10.32.240.126, broadcast 10.32.240.127 | Network ID bergeser akibat kesalahan pada subnet sebelumnya. Harus lanjut dari 10.32.239.255. |
+| PJU Pintar Selatan (/25) | Network 10.32.241.0, rentang 10.32.241.1 - 10.32.241.62, broadcast 10.32.241.63 | Network 10.32.240.128, rentang 10.32.240.129 - 10.32.240.254, broadcast 10.32.240.255 | Blok /25 = 128 alamat, tetapi rentang UTS hanya 64 alamat (seperti /26). Network ID harus lanjut dari 10.32.240.127. |
+| Server Balai Kota (/27) | Network 10.32.241.64, rentang 10.32.241.65 - 10.32.241.254, broadcast 10.32.241.255 | Network 10.32.241.0, rentang 10.32.241.1 - 10.32.241.30, broadcast 10.32.241.31 | Blok /27 = 32 alamat, tetapi rentang UTS sampai .254 (seperti /24). Network ID harus lanjut dari 10.32.240.255. |
+| Subnet link L1-L6 (6 subnet /30) | Tidak ada di lembar UTS | Ditambahkan: L1-L6 sebagai /30, dialokasikan setelah blok LAN | Backbone Gambar 1 membutuhkan alamat untuk setiap link. Penambahan tidak mengubah alokasi 14 LAN. |
 
 ---
 
