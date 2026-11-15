@@ -261,6 +261,74 @@ Kesalahan hitung pada jawaban UTS diperbaiki dan dicatat pada tabel berikut. Jaw
 
 ---
 
+# Soal 3: Static Routing
+
+## Penjelasan Konfigurasi
+
+Seluruh komunikasi antar-LAN dikonfigurasi menggunakan *static route* dan *default route* dengan hierarki routing sebagai berikut:
+
+### 1. Default route ke arah atas / keluar
+
+Setiap router wilayah dan pusat memiliki satu *default route* (`0.0.0.0 0.0.0.0`) yang mengarah langsung ke router satu tingkat di atasnya (atau keluar menuju R-ISP).
+
+| Router | Perintah Default Route | Next-Hop (Arah) |
+|---|---|---|
+| R-DC | `ip route 0.0.0.0 0.0.0.0 10.32.241.33` | R-PUSAT (L1) |
+| R-UTARA | `ip route 0.0.0.0 0.0.0.0 10.32.241.37` | R-PUSAT (L2) |
+| R-SELATAN | `ip route 0.0.0.0 0.0.0.0 10.32.241.41` | R-PUSAT (L3) |
+| R-TIMUR | `ip route 0.0.0.0 0.0.0.0 10.32.241.45` | R-PUSAT (L4) |
+| R-BARAT | `ip route 0.0.0.0 0.0.0.0 10.32.241.49` | R-PUSAT (L5) |
+| R-PELABUHAN | `ip route 0.0.0.0 0.0.0.0 10.32.241.53` | R-UTARA (L6) |
+| R-PUSAT | `ip route 0.0.0.0 0.0.0.0 203.0.113.18` | R-ISP (Internet) |
+
+### 2. Static route ke arah dalam (R-PUSAT dan R-UTARA)
+
+Agar lalu lintas balik menuju LAN wilayah dapat diteruskan dengan tepat, **R-PUSAT** dan **R-UTARA** dilengkapi *static route* spesifik ke seluruh subnet di bawahnya.
+
+Konfigurasi pada **R-UTARA** (menuju seluruh LAN di bawah R-PELABUHAN):
+
+```
+ip route 10.32.160.0 255.255.224.0 10.32.241.54
+ip route 10.32.240.0 255.255.255.128 10.32.241.54
+```
+
+Konfigurasi pada **R-PUSAT** (menuju seluruh LAN milik R-DC, R-UTARA, R-PELABUHAN, R-SELATAN, R-TIMUR, dan R-BARAT):
+
+```
+! Rute ke R-DC
+ip route 10.32.96.0 255.255.224.0 10.32.241.34
+ip route 10.32.239.0 255.255.255.0 10.32.241.34
+
+! Rute ke R-UTARA (termasuk Pelabuhan dan link L6)
+ip route 10.32.0.0 255.255.192.0 10.32.241.38
+ip route 10.32.236.0 255.255.254.0 10.32.241.38
+ip route 10.32.160.0 255.255.224.0 10.32.241.38
+ip route 10.32.240.0 255.255.255.128 10.32.241.38
+ip route 10.32.241.52 255.255.255.252 10.32.241.38
+
+! Rute ke R-SELATAN
+ip route 10.32.64.0 255.255.224.0 10.32.241.42
+ip route 10.32.240.128 255.255.255.128 10.32.241.42
+
+! Rute ke R-TIMUR
+ip route 10.32.128.0 255.255.224.0 10.32.241.46
+ip route 10.32.232.0 255.255.252.0 10.32.241.46
+
+! Rute ke R-BARAT
+ip route 10.32.192.0 255.255.224.0 10.32.241.50
+ip route 10.32.238.0 255.255.255.0 10.32.241.50
+```
+
+## Bukti Pengujian Mandiri
+
+| No | Pengujian | Perintah / cara | Hasil yang diharapkan | Screenshot |
+|---|---|---|---|---|
+| 1 | Tabel routing R-PUSAT | `show ip route` di R-PUSAT | Terdapat rute statis (`S`) ke seluruh LAN wilayah dan default route (`S*`) ke `203.0.113.18` | ![](docs/img/soal3-show-ip-route-r-pusat.png) |
+| 2 | Tabel routing R-UTARA dan router cabang | `show ip route` di R-UTARA dan R-SELATAN | R-UTARA memiliki rute ke Pelabuhan dan default route ke R-PUSAT; router cabang hanya memiliki default route ke atas | ![](docs/img/soal3-show-ip-route-cabang.png) |
+| 3 | Konektivitas dan jalur antar-wilayah | `ping 10.32.232.11` dan `tracert 10.32.232.11` dari PC-PUSKESMAS-SEKOLAH-BARAT | Ping `Reply`, jalur melewati R-BARAT (`10.32.238.1`) -> R-PUSAT (`10.32.241.49`) -> R-TIMUR (`10.32.241.46`) -> tujuan | ![](docs/img/soal3-ping-tracert-antar-lan.png) |
+
+---
+
 # Soal 4: DHCP
 
 ## Penjelasan Konfigurasi
@@ -357,6 +425,117 @@ Di SRV-DC (Services, DHCP, Service On) dibuat pool:
 | 8 | Relay di R-DC | `show ip interface GigabitEthernet0/0` | `Helper address is 10.32.239.2` | <img width="1206" height="712" alt="soal4-r-dc-helper-address" src="https://github.com/user-attachments/assets/252ad078-616b-4412-94ca-c7707c680b81" /> |
 | 9 | Pool CCTV di server | SRV-DC, Services, DHCP | Pool `CCTV-KOTA` terdaftar | <img width="2880" height="1232" alt="soal4-srv-dc-dhcp-cctv" src="https://github.com/user-attachments/assets/6aec5677-1d65-4b88-ac64-857702fe9dca" /> |
 | 10 | CCTV mendapat IP dari server | `ipconfig /all` di PC-CCTV-KOTA | IP `10.32.96.11`, DHCP Servers `10.32.239.2` | <img width="1446" height="1246" alt="soal4-ipconfig-pc-cctv" src="https://github.com/user-attachments/assets/fa4c9f3a-ed5b-4137-b827-38fc989c472a" /> |
+
+---
+
+# Soal 5: NAT
+
+## Penjelasan Konfigurasi
+
+Agar seluruh host internal yang menggunakan IP privat `10.32.0.0` dapat mengakses server internet `8.8.8.8` tanpa memberikan rute blok privat ke **R-ISP**, dikonfigurasi **NAT Overload (PAT)** pada **R-PUSAT**. Seluruh paket keluar dari jaringan internal ditranslasikan menggunakan satu IP publik milik interface eksternal R-PUSAT (`203.0.113.17`).
+
+Konfigurasi pada **R-PUSAT** (nama interface mengikuti tabel alamat interface pada Soal 2):
+
+```
+interface GigabitEthernet0/7
+ ip nat outside
+ exit
+
+interface GigabitEthernet0/0
+ ip nat inside
+ exit
+interface GigabitEthernet0/1
+ ip nat inside
+ exit
+interface GigabitEthernet0/2
+ ip nat inside
+ exit
+interface GigabitEthernet0/3
+ ip nat inside
+ exit
+interface GigabitEthernet0/4
+ ip nat inside
+ exit
+interface GigabitEthernet0/5
+ ip nat inside
+ exit
+interface GigabitEthernet0/6
+ ip nat inside
+ exit
+
+access-list 1 permit any
+ip nat inside source list 1 interface GigabitEthernet0/7 overload
+```
+
+Penjelasan perintah:
+
+| Perintah | Fungsi |
+|---|---|
+| `ip nat outside` | Menandai interface yang terhubung ke jaringan publik (R-ISP, `203.0.113.17`) |
+| `ip nat inside` | Menandai seluruh interface yang mengarah ke LAN internal dan backbone wilayah |
+| `access-list 1 permit any` | Mengizinkan lalu lintas dari alamat privat internal untuk ditranslasikan |
+| `ip nat inside source list 1 interface ... overload` | Mengaktifkan PAT (*Port Address Translation*) sehingga banyak host internal berbagi satu IP publik `203.0.113.17` |
+
+Pada **R-ISP**, tidak dikonfigurasi static route maupun default route menuju blok alamat privat `10.32.0.0`. Tabel routing R-ISP hanya memuat jaringan publik yang terhubung langsung (`203.0.113.16/30` dan `8.8.8.0/24`).
+
+## Bukti Pengujian Mandiri
+
+| No | Pengujian | Perintah / cara | Hasil yang diharapkan | Screenshot |
+|---|---|---|---|---|
+| 1 | Akses internet dari wilayah Barat dan Selatan | `ping 8.8.8.8` dan `tracert 8.8.8.8` dari PC-PUSKESMAS-SEKOLAH-BARAT dan PC-PJU-SELATAN | Ping `Reply` dari `8.8.8.8` di kedua wilayah | ![](docs/img/soal5-ping-8-8-8-8.png) |
+| 2 | Translasi alamat aktif di R-PUSAT | `show ip nat translations` dan `show ip nat statistics` di R-PUSAT | Inside local (`10.32.x.x`) ditranslasikan ke Inside global (`203.0.113.17`) | ![](docs/img/soal5-show-ip-nat.png) |
+| 3 | R-ISP tidak memiliki rute ke blok privat | `show ip route` di R-ISP | Hanya terdapat rute `203.0.113.16/30` dan `8.8.8.0/24`, tanpa rute `10.32.0.0` | ![](docs/img/soal5-show-ip-route-r-isp.png) |
+
+---
+
+# Soal 6: Tunnel GRE
+
+## Penjelasan Konfigurasi
+
+Jalur virtual *point-to-point* dibangun menggunakan antarmuka **Tunnel GRE (`Tunnel0`)** antara **R-PUSAT** dan **R-PELABUHAN** dengan blok alamat `192.168.4.0/30` (melewati jalur fisik L2 dan L6 via R-UTARA). Rute statis fisik lama dari R-PUSAT ke Pelabuhan dihapus dan diganti dengan rute statis yang mengarahkan lalu lintas antara subnet Balai Kota dan subnet Pelabuhan melalui IP tunnel.
+
+Konfigurasi pada **R-PUSAT**:
+
+```
+no ip route 10.32.160.0 255.255.224.0 10.32.241.38
+no ip route 10.32.240.0 255.255.255.128 10.32.241.38
+
+interface Tunnel0
+ ip address 192.168.4.1 255.255.255.252
+ tunnel source GigabitEthernet0/3
+ tunnel destination 10.32.241.54
+ exit
+
+ip route 10.32.160.0 255.255.224.0 192.168.4.2
+ip route 10.32.240.0 255.255.255.128 192.168.4.2
+```
+
+Konfigurasi pada **R-PELABUHAN**:
+
+```
+interface Tunnel0
+ ip address 192.168.4.2 255.255.255.252
+ tunnel source GigabitEthernet0/0
+ tunnel destination 10.32.241.37
+ exit
+
+ip route 10.32.224.0 255.255.248.0 192.168.4.1
+ip route 10.32.241.0 255.255.255.224 192.168.4.1
+```
+
+### Analisis Pemilihan Jalur dan Keamanan GRE
+
+| Pertanyaan | Penjelasan |
+|---|---|
+| Mengapa router memilih jalur tunnel dibandingkan jalur lain ke pelabuhan? | Router menerapkan aturan *Longest Prefix Match* (pencocokan prefix paling spesifik) saat memilih rute. Pada **R-PUSAT**, rute fisik melalui R-UTARA (`10.32.241.38`) telah dihapus dan digantikan oleh *static route* menuju subnet Pelabuhan (`/19` dan `/25`) dengan *next-hop* `192.168.4.2` (antarmuka `Tunnel0`). Pada **R-PELABUHAN**, *static route* menuju subnet Balai Kota (`10.32.224.0/21` dan `10.32.241.0/27`) via `192.168.4.1` memiliki prefix lebih spesifik dibandingkan *default route* (`0.0.0.0/0`), sehingga router memprioritaskan pengiriman paket melalui lorong virtual `Tunnel0` dan melewati R-UTARA secara transparan (tidak terlihat sebagai hop IP terpisah). |
+| Mengapa GRE saja tidak mengenkripsi data? | GRE (*Generic Routing Encapsulation*) merupakan protokol *tunneling* dan enkapsulasi murni yang hanya membungkus paket IP asli dengan *header* GRE dan *header* IP luar baru agar paket dapat melintasi jaringan perantara. GRE tidak dilengkapi mekanisme kriptografi (seperti kerahasiaan/enkripsi maupun integritas data), sehingga muatan paket (*payload*) di dalamnya tetap dikirimkan dalam bentuk teks terang (*plaintext*) dan tetap rentan disadap (*eavesdropping*) apabila tidak dikombinasikan dengan protokol keamanan seperti IPsec. |
+
+## Bukti Pengujian Mandiri
+
+| No | Pengujian | Perintah / cara | Hasil yang diharapkan | Screenshot |
+|---|---|---|---|---|
+| 1 | Status dan konfigurasi Tunnel0 di kedua sisi | `show interface Tunnel0` di R-PUSAT dan R-PELABUHAN | Status `Tunnel0 is up, line protocol is up`, IP `192.168.4.1/30` dan `192.168.4.2/30`, protokol `GRE/IP` | ![](docs/img/soal6-show-interface-tunnel0.png) |
+| 2 | Lalu lintas Balai Kota ke Pelabuhan melewati tunnel | `tracert 10.32.240.11` dari PC-PEGAWAI-BALAIKOTA | Hop melewati gateway `10.32.224.1` -> IP tunnel `192.168.4.2` -> tujuan `10.32.240.11` (R-UTARA tidak muncul sebagai hop) | ![](docs/img/soal6-tracert-via-tunnel.png) |
 
 ---
 
