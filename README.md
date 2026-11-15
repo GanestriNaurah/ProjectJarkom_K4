@@ -10,7 +10,7 @@
 
 Topologi dibangun di Cisco Packet Tracer dengan skema **VLSM** (notasi prefix CIDR) dan blok dasar `10.32.0.0` (oktet kedua = 8 x nomor kelompok 4). Pusat jaringan berada di R-PUSAT (Balai Kota) dengan enam link backbone (L1 sampai L6) ke router wilayah dan satu link ke R-ISP.
 
-![soal1-topologi](docs/img/soal1-topologi.png)
+<img width="1080" height="510" alt="Screenshot 2026-11-15 at 20 52 30" src="https://github.com/user-attachments/assets/35788477-5fec-4510-beef-ad4fd7b4ead8" />
 
 ## Penjelasan Rancangan
 
