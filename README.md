@@ -538,6 +538,175 @@ ip route 10.32.241.0 255.255.255.224 192.168.4.1
 | 2 | Lalu lintas Balai Kota ke Pelabuhan melewati tunnel | `tracert 10.32.240.11` dari PC-PEGAWAI-BALAIKOTA | Hop melewati gateway `10.32.224.1` -> IP tunnel `192.168.4.2` -> tujuan `10.32.240.11` (R-UTARA tidak muncul sebagai hop) | ![](docs/img/soal6-tracert-via-tunnel.png) |
 
 ---
+# Soal 7: OSPF dan Failover
+
+## Penjelasan Konfigurasi
+
+### 1. Link cadangan L7 (R-DC dan R-UTARA)
+
+Untuk membuat jalur cadangan, R-DC dan R-UTARA dihubungkan langsung memakai kabel Copper Cross-Over pada interface GigabitEthernet0/2 di kedua router. Link ini memakai subnet /30 baru (2 host).
+
+| Item | Nilai |
+|---|---|
+| Nama subnet | L7 (R-DC - R-UTARA) |
+| Network ID | 10.32.241.56 |
+| Subnet mask | 255.255.255.252 (/30) |
+| Rentang host | 10.32.241.57 - 10.32.241.58 |
+| Broadcast | 10.32.241.59 |
+| Interface R-DC | Gi0/2, 10.32.241.57 /30 |
+| Interface R-UTARA | Gi0/2, 10.32.241.58 /30 |
+
+```
+! R-DC
+interface GigabitEthernet0/2
+ ip address 10.32.241.57 255.255.255.252
+ no shutdown
+
+! R-UTARA
+interface GigabitEthernet0/2
+ ip address 10.32.241.58 255.255.255.252
+ no shutdown
+```
+
+Konfigurasi interface L7 di R-UTARA (Gi0/2 berubah menjadi up/up setelah `no shutdown`):
+
+<img width="2880" height="1702" alt="Screenshot 2026-11-15 180050" src="https://github.com/user-attachments/assets/0aa8ee2b-49af-4111-9e67-00414d115d71" />
+
+Setelah kedua sisi dikonfigurasi, link L7 diuji dengan ping dari R-DC ke R-UTARA:
+
+<img width="1110" height="538" alt="Screenshot 2026-11-15 175549" src="https://github.com/user-attachments/assets/f1665b37-c969-41da-90f7-5a9cf3d21ef0" />
+
+Ping pertama bernilai `.` (timeout) karena proses ARP, empat ping berikutnya berhasil (`!!!!`). Success rate 80 persen (4/5) adalah hal yang normal.
+
+### 2. Menghapus static route
+
+Sebelum OSPF dipakai, semua routing memakai static route. Static route harus dihapus supaya tabel routing hanya berisi rute hasil OSPF. Kalau tidak dihapus, static route (AD 1) lebih diprioritaskan daripada OSPF (AD 110) dan failover tidak akan terlihat.
+
+Contoh penghapusan pada R-PUSAT:
+
+```
+no ip route 10.32.96.0 255.255.224.0 10.32.241.34
+no ip route 10.32.239.0 255.255.255.0 10.32.241.34
+no ip route 10.32.0.0 255.255.192.0 10.32.241.38
+... (seluruh static route ke wilayah lain)
+```
+
+<img width="1402" height="638" alt="Screenshot 2026-11-15 175303" src="https://github.com/user-attachments/assets/e8f092ea-5031-4f9e-9650-c7340632c107" />
+
+
+Pesan `%No matching route to delete` pada dua baris terakhir muncul karena route tersebut memang tidak ada. Ini bukan error.
+
+Setelah itu, routing table R-PUSAT hanya berisi rute connected (`C` dan `L`) dan default route ke internet (`Gateway of last resort is 203.0.113.18`). Default route ini dipertahankan dan disebarkan ke router lain lewat `default-information originate`.
+
+<img width="1240" height="1248" alt="Screenshot 2026-11-15 175334" src="https://github.com/user-attachments/assets/cd372809-7116-403c-9c5e-25450bc0cb11" />
+
+Static route dan default route di router lain (R-DC, R-UTARA, R-PELABUHAN, R-SELATAN, R-TIMUR, R-BARAT) dihapus dengan cara yang sama. Contoh pada R-DC (`no ip route 0.0.0.0 0.0.0.0 10.32.241.33`) terlihat di bagian bawah screenshot ping L7 di atas, dan contoh pada R-UTARA terlihat di bagian bawah screenshot konfigurasi L7. Setelah itu `show running-config | include ip route` tidak menampilkan keluaran apa pun.
+
+### 3. Konfigurasi OSPF
+
+Contoh konfigurasi R-PUSAT:
+
+```
+router ospf 1
+ router-id 1.1.1.1
+ passive-interface default
+ no passive-interface Serial0/0/0
+ no passive-interface Serial0/0/1
+ no passive-interface Serial0/1/0
+ no passive-interface Serial0/1/1
+ no passive-interface Serial0/2/0
+ network 10.32.241.32 0.0.0.31 area 0
+ network 10.32.224.0 0.0.7.255 area 0
+ network 10.32.241.0 0.0.0.31 area 0
+ default-information originate
+```
+
+Contoh konfigurasi R-UTARA (router yang memiliki link L7):
+
+```
+interface GigabitEthernet0/2
+ ip ospf network point-to-point
+router ospf 1
+ router-id 3.3.3.3
+ passive-interface default
+ no passive-interface Serial0/0/0
+ no passive-interface Serial0/0/1
+ no passive-interface GigabitEthernet0/2
+ network 10.32.241.32 0.0.0.31 area 0
+ network 10.32.0.0 0.0.63.255 area 0
+ network 10.32.236.0 0.0.1.255 area 0
+```
+
+| Perintah | Fungsi |
+|---|---|
+| `router ospf 1` | Mengaktifkan proses OSPF dengan process ID 1 |
+| `router-id` | Identitas unik router di OSPF (R-PUSAT 1.1.1.1, R-DC 2.2.2.2, R-UTARA 3.3.3.3, R-PELABUHAN 4.4.4.4, R-SELATAN 5.5.5.5, R-TIMUR 6.6.6.6, R-BARAT 7.7.7.7) |
+| `passive-interface default` | Semua interface pasif, tidak mengirim Hello, sehingga LAN pengguna tidak ikut membentuk neighbor |
+| `no passive-interface <WAN>` | Hanya interface link antar router yang boleh membentuk neighbor |
+| `network <net> <wildcard> area 0` | Mengiklankan network ke OSPF area 0. Blok 10.32.241.32/27 mencakup semua link serial dan L7 |
+| `ip ospf network point-to-point` | Pada link L7, adjacency langsung terbentuk tanpa pemilihan DR/BDR |
+| `default-information originate` | R-PUSAT menyebarkan default route ke seluruh router |
+
+Ringkasan seluruh router:
+
+| Router | Router ID | Interface OSPF aktif | Network yang diiklankan |
+|---|---|---|---|
+| R-PUSAT | 1.1.1.1 | Se0/0/0, Se0/0/1, Se0/1/0, Se0/1/1, Se0/2/0 | 10.32.241.32/27, 10.32.224.0/21, 10.32.241.0/27 |
+| R-DC | 2.2.2.2 | Se0/0/0, Gi0/2 | 10.32.241.32/27, 10.32.96.0/19, 10.32.239.0/24 |
+| R-UTARA | 3.3.3.3 | Se0/0/0, Se0/0/1, Gi0/2 | 10.32.241.32/27, 10.32.0.0/18, 10.32.236.0/23 |
+| R-PELABUHAN | 4.4.4.4 | Se0/0/0 | 10.32.241.32/27, 10.32.160.0/19, 10.32.240.0/25 |
+| R-SELATAN | 5.5.5.5 | Se0/0/0 | 10.32.241.32/27, 10.32.64.0/19, 10.32.240.128/25 |
+| R-TIMUR | 6.6.6.6 | Se0/0/0 | 10.32.241.32/27, 10.32.128.0/19, 10.32.232.0/22 |
+| R-BARAT | 7.7.7.7 | Se0/0/0 | 10.32.241.32/27, 10.32.192.0/19, 10.32.238.0/24 |
+
+### 4. Cara kerja failover
+
+- Jalur utama R-PUSAT ke R-DC adalah link serial langsung (10.32.241.32/30, cost 64).
+- Jalur cadangan adalah R-PUSAT ke R-UTARA (serial, cost 64), lalu R-UTARA ke R-DC lewat L7 (Gigabit, cost 1), total cost 65.
+- OSPF memilih cost terkecil, jadi trafik normal lewat link utama. Saat link utama diputus, OSPF menghitung ulang (SPF) dan otomatis memakai jalur cadangan lewat L7, tanpa konfigurasi manual.
+
+## Bukti Pengujian Mandiri
+
+Seluruh pengujian di bawah sudah dijalankan saat demo dan semuanya berhasil. Bukti visual yang dilampirkan hanya pada bagian konfigurasi di atas. Pengujian lainnya dijelaskan hasilnya pada tabel berikut.
+
+### a. Persiapan (sebelum failover)
+
+| No | Pengujian | Perintah / cara | Hasil |
+|---|---|---|---|
+| 1 | Link L7 aktif | `ping 10.32.241.58` di R-DC | Berhasil, balasan `!` (4 dari 5, ping pertama timeout karena ARP) |
+| 2 | Konfigurasi L7 di R-UTARA | `show ip interface brief` | Gi0/2 10.32.241.58, status up/up |
+| 3 | Static route sudah dihapus | `show running-config \| include ip route` di tiap router | R-PUSAT hanya tersisa default route ke 203.0.113.18, router lain tidak ada keluaran |
+
+### b. Neighbor dan rute OSPF
+
+| No | Pengujian | Perintah | Hasil |
+|---|---|---|---|
+| 1 | Neighbor R-PUSAT | `show ip ospf neighbor` | 5 neighbor (2.2.2.2, 3.3.3.3, 5.5.5.5, 6.6.6.6, 7.7.7.7) berstatus FULL |
+| 2 | Neighbor R-UTARA | `show ip ospf neighbor` | Neighbor R-PUSAT, R-DC (lewat L7), dan R-PELABUHAN berstatus FULL |
+| 3 | Rute OSPF di routing table | `show ip route ospf` di R-PUSAT | Rute berkode `O` ke seluruh LAN wilayah |
+| 4 | Konektivitas antar wilayah | `ping 10.32.239.2`, `ping 10.32.240.11`, `ping 10.32.64.11` dari PC-PEGAWAI-BALAIKOTA | Semua balasan berhasil |
+| 5 | Akses internet | `ping 8.8.8.8` dari PC-CCTV-KOTA | Balasan berhasil |
+
+### c. Uji failover
+
+Skenario: PC-PEGAWAI-BALAIKOTA mengirim ping terus-menerus ke SRV-DC (10.32.239.2). Link utama R-PUSAT ke R-DC diputus, lalu dipulihkan.
+
+| No | Langkah | Perintah / cara | Hasil |
+|---|---|---|---|
+| 1 | Traceroute sebelum putus | `tracert 10.32.239.2` di PC-PEGAWAI-BALAIKOTA | Jalur langsung: PC, R-PUSAT, R-DC, SRV-DC |
+| 2 | Ping kontinu | `ping -t 10.32.239.2` | Balasan terus berjalan |
+| 3 | Putuskan link utama | Hapus kabel serial R-PUSAT ke R-DC | Ping sempat `Request timed out` (RTO) |
+| 4 | Pemulihan lewat L7 | Tunggu OSPF konvergen | Ping kembali `Reply` tanpa konfigurasi manual |
+| 5 | Traceroute sesudah putus | `tracert 10.32.239.2` | Jalur berubah: PC, R-PUSAT, R-UTARA, R-DC, SRV-DC (lewat L7) |
+| 6 | Neighbor saat link putus | `show ip ospf neighbor` di R-PUSAT | Neighbor 2.2.2.2 hilang, 4 neighbor tersisa |
+| 7 | Sambungkan kembali | Pasang kabel serial R-PUSAT ke R-DC | Neighbor 2.2.2.2 kembali FULL |
+| 8 | Traceroute setelah dipulihkan | `tracert 10.32.239.2` | Jalur kembali langsung lewat R-PUSAT dan R-DC |
+
+### d. Baris tambahan tabel VLSM
+
+| Nama Subnet | Router | Host | Prefix | Ukuran Blok | Network ID | Subnet Mask | Rentang Host | Broadcast | Gateway |
+|---|---|---|---|---|---|---|---|---|---|
+| L7 (R-DC - R-UTARA) | R-DC - R-UTARA | 2 | /30 | 4 | 10.32.241.56 | 255.255.255.252 | 10.32.241.57 - 10.32.241.58 | 10.32.241.59 | 10.32.241.57 |
 
 # Soal 8: Layanan Aplikasi Smart City
 
